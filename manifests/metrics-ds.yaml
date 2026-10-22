@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ebpf-metrics
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: ebpf-metrics
+  template:
+    metadata:
+      labels:
+        app: ebpf-metrics
+    spec:
+      containers:
+        - name: agent
+          image: azuar4e/ebpf-metrics:v1
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          ports:
+            - name: metrics
+              containerPort: 2112
+          volumeMounts:
+            - name: tracefs
+              mountPath: /sys/kernel/tracing
+      volumes:
+        - name: tracefs
+          hostPath:
+            path: /sys/kernel/tracing

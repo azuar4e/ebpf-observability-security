@@ -91,9 +91,7 @@ func main() {
 	objs := bpfObjects{}
 
 	if err := loadBpfObjects(&objs, nil); err != nil {
-
 		log.Fatalf("loading objects: %v", err)
-
 	}
 
 	defer objs.Close()

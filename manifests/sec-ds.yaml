@@ -1,0 +1,66 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ebpf-security
+  namespace: default
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ebpf-security
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ebpf-security
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ebpf-security
+subjects:
+  - kind: ServiceAccount
+    name: ebpf-security
+    namespace: default
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: ebpf-sec
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: ebpf-sec
+  template:
+    metadata:
+      labels:
+        app: ebpf-sec
+    spec:
+      serviceAccountName: ebpf-security
+      containers:
+        - name: agent
+          image: azuar4e/ebpf-sec:v2
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          ports:
+            - name: metrics
+              containerPort: 2112
+          volumeMounts:
+            - name: cgrouppath
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+      volumes:
+        - name: cgrouppath
+          hostPath:
+            path: /sys/fs/cgroup

@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ebpf-agents
+  namespace: monitoring
+  labels:
+    release: kps
+spec:
+  namespaceSelector:
+    matchNames: [default]
+  selector:
+    matchExpressions:
+      - {key: app, operator: In, values: [ebpf-metrics, ebpf-sec]}
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
