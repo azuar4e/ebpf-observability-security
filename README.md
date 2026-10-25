@@ -28,17 +28,19 @@ It attaches to the `sock:inet_sock_set_state` tracepoint, which fires on every T
     - `TCP_FAILED`: the socket went from `SYN_SENT` to `CLOSE`, so the connection attempt failed.
 - **Ring buffer:** sends the details of each established connection to user space.
 
+In user space, a goroutine reads the ring buffer, logs every connection and records its latency in a Prometheus histogram, whose buckets are tuned to the latencies observed. A custom collector reads the per-CPU array and exposes the total of each reason (the sum of the counter on every core). Both are served at `/metrics` on port `2112`.
+
 ### Security agent
 
 It attaches to the `bprm_check_security` LSM hook, which runs during `execve`, right before the new binary is executed. The program returns `0` to allow it or `-EPERM` to deny it. It uses three data structures:
 
 - **`blocked_paths`:** hash map with the paths of the binaries to block.
 - **`watched_cgroups`:** hash map with the ids of the cgroups to enforce on.
-- **Ring buffer:** sends user space who ran which blocked command (pid, cgroup, path and process name).
+- **Ring buffer:** sends user space one event per denied execution, with the timestamp, the pid, the cgroup id, the name of the process that tried to run the command (`comm`) and the path of the blocked binary.
 
 The program only denies when the process belongs to a watched cgroup **and** the binary is in `blocked_paths`. In every other case it returns `0`.
 
-In user space the Kubernetes client lists the pods labelled `ebpf-sec=enforce`, takes the ID of each container, looks for its cgroup under `/sys/fs/cgroup` and inserts the inode (which is the cgroup id the kernel sees) in `watched_cgroups`. It repeats this every 10 seconds, since pods come and go.
+In user space the Kubernetes client lists the pods labelled `ebpf-sec=enforce`, takes the ID of each container, looks for its cgroup under `/sys/fs/cgroup` and inserts the inode (which is the cgroup id the kernel sees) in `watched_cgroups`. It repeats this every 10 seconds, since pods come and go. Another goroutine reads the ring buffer and increments a Prometheus counter with the number of blocked executions, exposed at `/metrics` on port `2112`.
 
 ### Manifests
 
